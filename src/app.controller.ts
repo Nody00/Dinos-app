@@ -21,7 +21,8 @@ export class AppController {
     }
 
     await this.emailService.send({
-      to: to,
+      to: 'dinokrcic2077@gmail.com',
+      from: 'dinoapp@yourapp.com',
       subject: 'Test Email from NestJS',
       text: 'Hello! This is a test email from your NestJS application.',
       values: {
@@ -33,6 +34,7 @@ export class AppController {
         features: ['Email Notifications', 'User Dashboard', 'API Access'],
         supportLink: 'https://support.dinoapp.com',
       },
+      templateId: 'd-fbf5d6cc201f4297a27bf00b10bee2d2',
     });
 
     return {

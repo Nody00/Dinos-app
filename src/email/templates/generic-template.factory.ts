@@ -1,7 +1,59 @@
+/**
+ * Creates a beautiful, responsive HTML email template with dynamic values.
+ * Used by the SMTP provider to generate professional-looking emails.
+ *
+ * Features:
+ * - Responsive design that works on all email clients
+ * - Purple gradient header with branding
+ * - Sender and receiver email addresses displayed
+ * - Dynamic value table with smart formatting
+ * - Professional footer with copyright
+ *
+ * @param values - Dynamic key-value pairs to display in the email
+ * @param senderEmail - Email address of the sender (displayed in header)
+ * @param receiverEmail - Email address(es) of the recipient(s) (displayed in header)
+ * @returns Complete HTML email string with inline CSS
+ *
+ * @example
+ * ```typescript
+ * const html = createGenericTemplate(
+ *   {
+ *     userName: 'John Doe',
+ *     accountStatus: 'Active',
+ *     emailVerified: true,
+ *     loginAttempts: 3,
+ *     features: ['Dashboard', 'API Access', 'Reports'],
+ *     supportLink: 'https://support.dinoapp.com'
+ *   },
+ *   'noreply@dinoapp.com',
+ *   'user@example.com'
+ * );
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Multiple recipients
+ * const html = createGenericTemplate(
+ *   { message: 'Team update' },
+ *   'team@dinoapp.com',
+ *   ['user1@example.com', 'user2@example.com']
+ * );
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Empty values (shows "No additional information provided")
+ * const html = createGenericTemplate(
+ *   {},
+ *   'noreply@dinoapp.com',
+ *   'user@example.com'
+ * );
+ * ```
+ */
 export default function createGenericTemplate(
   values: Record<string, any> = {},
   senderEmail: string,
-  receiverEmail: string,
+  receiverEmail: string | string[],
 ): string {
   const valueRows = Object.entries(values)
     .map(
@@ -57,7 +109,16 @@ export default function createGenericTemplate(
                     <tr>
                       <td style="padding: 8px 0;">
                         <span style="font-weight: 600; color: #374151; font-size: 14px;">To:</span>
-                        <span style="color: #6b7280; font-size: 14px; margin-left: 8px;">${receiverEmail}</span>
+                        ${
+                          Array.isArray(receiverEmail)
+                            ? receiverEmail
+                                .map(
+                                  (email) =>
+                                    `<span style="color: #6b7280; font-size: 14px; margin-left: 8px;">${email}</span>`,
+                                )
+                                .join(', ')
+                            : `<span style="color: #6b7280; font-size: 14px; margin-left: 8px;">${receiverEmail}</span>`
+                        }
                       </td>
                     </tr>
                   </table>
@@ -111,6 +172,18 @@ export default function createGenericTemplate(
   `;
 }
 
+/**
+ * Formats a camelCase or snake_case key into a human-readable label.
+ * Converts "userName" to "User Name", "email_verified" to "Email Verified", etc.
+ *
+ * @param key - The key to format
+ * @returns Formatted, human-readable label
+ *
+ * @example
+ * formatKey('userName') // Returns: "User Name"
+ * formatKey('emailVerified') // Returns: "Email Verified"
+ * formatKey('support_link') // Returns: "Support Link"
+ */
 function formatKey(key: string): string {
   return key
     .replace(/([A-Z])/g, ' $1')
@@ -118,6 +191,28 @@ function formatKey(key: string): string {
     .trim();
 }
 
+/**
+ * Formats a value for display in the email template with smart type handling.
+ *
+ * Formatting rules:
+ * - null/undefined: Shows "Not provided" in gray italic
+ * - boolean: Shows "✓ Yes" or "✗ No"
+ * - array: Joins elements with comma separator
+ * - object: Pretty-prints as JSON
+ * - URL string: Converts to clickable link
+ * - other: Converts to string
+ *
+ * @param value - The value to format
+ * @returns HTML-formatted value string
+ *
+ * @example
+ * formatValue(true) // Returns: "✓ Yes"
+ * formatValue(false) // Returns: "✗ No"
+ * formatValue(null) // Returns: "<em style='color: #9ca3af;'>Not provided</em>"
+ * formatValue(['A', 'B', 'C']) // Returns: "A, B, C"
+ * formatValue('https://example.com') // Returns: "<a href='...'>https://example.com</a>"
+ * formatValue({ name: 'John' }) // Returns: Pretty-printed JSON
+ */
 function formatValue(value: any): string {
   if (value === null || value === undefined) {
     return '<em style="color: #9ca3af;">Not provided</em>';
