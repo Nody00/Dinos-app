@@ -54,6 +54,11 @@ export class SmtpEmailProvider implements IEmailProvider {
       port: this.configService.get<number>('SMTP_PORT', 1025),
       secure: this.configService.get<boolean>('SMTP_SECURE') === true,
       auth: this.getAuthConfig(),
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      rateLimit: 10, // Send max 10 emails
+      rateDelta: 1000, // per 1 second (1000ms)
     });
 
     this.logger.log(
