@@ -1,7 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Controller, Logger } from '@nestjs/common';
+import {
+  MessagePattern,
+  Payload,
+  Ctx,
+  RmqContext,
+} from '@nestjs/microservices';
 import { UserUpdatedEvent, UserUpdatedPayload } from '../user-updated.event';
 import { ActorType } from '../../../common/events/types/actor-type.enum';
+import { Channel, Message } from 'amqplib';
 
 interface UserUpdatedEventData {
   eventId: string;
@@ -14,12 +20,15 @@ interface UserUpdatedEventData {
   occurredAt: string;
 }
 
-@Injectable()
+@Controller()
 export class UserUpdatedHandler {
   private readonly logger = new Logger(UserUpdatedHandler.name);
 
-  @EventPattern('user.updated')
-  handle(@Payload() eventData: UserUpdatedEventData): void {
+  @MessagePattern('user.updated')
+  handle(
+    @Payload() eventData: UserUpdatedEventData,
+    @Ctx() context: RmqContext,
+  ): void {
     try {
       // Reconstruct event from JSON
       const event = UserUpdatedEvent.fromJSON(eventData);
@@ -37,12 +46,21 @@ export class UserUpdatedHandler {
       // - Send notification email if email changed
       // - Update search index
       // - Sync with external systems
+
+      // Acknowledge the message
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.ack(message);
+      this.logger.debug(`Acknowledged user.updated event`);
     } catch (error) {
       this.logger.error(
         `Failed to handle user.updated event: ${error instanceof Error ? error.message : 'Unknown error'}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      // NACK with requeue on error
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.nack(message, false, true);
     }
   }
 }

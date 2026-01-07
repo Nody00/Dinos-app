@@ -41,7 +41,7 @@ export class EventPublisherService implements OnModuleInit, OnModuleDestroy {
             'amqp://guest:guest@localhost:5672',
           ),
         ],
-        queue: this.configService.get<string>('RABBITMQ_QUEUE', 'event_queue'),
+        queue: this.configService.get<string>('RABBITMQ_QUEUE', 'events_queue'),
         queueOptions: {
           durable: true,
         },

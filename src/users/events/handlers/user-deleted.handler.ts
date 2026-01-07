@@ -1,7 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Controller, Logger } from '@nestjs/common';
+import {
+  MessagePattern,
+  Payload,
+  Ctx,
+  RmqContext,
+} from '@nestjs/microservices';
 import { UserDeletedEvent, UserDeletedPayload } from '../user-deleted.event';
 import { ActorType } from '../../../common/events/types/actor-type.enum';
+import { Channel, Message } from 'amqplib';
 
 interface UserDeletedEventData {
   eventId: string;
@@ -14,12 +20,15 @@ interface UserDeletedEventData {
   occurredAt: string;
 }
 
-@Injectable()
+@Controller()
 export class UserDeletedHandler {
   private readonly logger = new Logger(UserDeletedHandler.name);
 
-  @EventPattern('user.deleted')
-  handle(@Payload() eventData: UserDeletedEventData): void {
+  @MessagePattern('user.deleted')
+  async handle(
+    @Payload() eventData: UserDeletedEventData,
+    @Ctx() context: RmqContext,
+  ): Promise<void> {
     try {
       // Reconstruct event from JSON
       const event = UserDeletedEvent.fromJSON(eventData);
@@ -38,12 +47,21 @@ export class UserDeletedHandler {
       // - Clean up user data from external systems
       // - Archive user records
       // - Update analytics
+
+      // Acknowledge the message
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.ack(message);
+      this.logger.debug(`Acknowledged user.deleted event`);
     } catch (error) {
       this.logger.error(
         `Failed to handle user.deleted event: ${error instanceof Error ? error.message : 'Unknown error'}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      // NACK with requeue on error
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.nack(message, false, true);
     }
   }
 }

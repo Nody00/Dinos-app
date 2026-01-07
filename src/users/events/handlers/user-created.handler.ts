@@ -1,5 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Controller, Logger } from '@nestjs/common';
+import {
+  MessagePattern,
+  Payload,
+  Ctx,
+  RmqContext,
+} from '@nestjs/microservices';
+import type { Channel, Message } from 'amqplib';
 import { EmailService } from 'src/email/email.service';
 import { UserCreatedEvent, UserCreatedPayload } from '../user-created.event';
 import { ActorType } from 'src/common/events/types/actor-type.enum';
@@ -15,14 +21,17 @@ interface UserCreatedEventData {
   occurredAt: string;
 }
 
-@Injectable()
+@Controller()
 export class UserCreatedHandler {
   private readonly logger = new Logger(UserCreatedHandler.name);
 
   constructor(private readonly emailService: EmailService) {}
 
-  @EventPattern('user.created')
-  async handle(@Payload() eventData: UserCreatedEventData): Promise<void> {
+  @MessagePattern('user.created')
+  async handle(
+    @Payload() eventData: UserCreatedEventData,
+    @Ctx() context: RmqContext,
+  ): Promise<void> {
     try {
       // Reconstruct event from JSON
       const event = UserCreatedEvent.fromJSON(eventData);
@@ -42,9 +51,18 @@ export class UserCreatedHandler {
         from: process.env.EMAIL_FROM ?? 'no-reply@example.com',
         text: 'Welcome to Our Platform!',
       });
+
+      // Acknowledge the message
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.ack(message);
+      this.logger.debug(`Acknowledged user.created event`);
     } catch (error) {
       this.logger.error(`Error handling user.created event: ${error}`);
-      throw error;
+      // NACK with requeue on error
+      const channel = context.getChannelRef() as Channel;
+      const message = context.getMessage() as Message;
+      channel.nack(message, false, true);
     }
   }
 }

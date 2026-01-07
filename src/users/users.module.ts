@@ -8,13 +8,13 @@ import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [EmailModule],
-  controllers: [UsersController],
-  providers: [
-    UsersService,
+  controllers: [
+    UsersController,
     UserCreatedHandler,
     UserUpdatedHandler,
     UserDeletedHandler,
   ],
+  providers: [UsersService],
   exports: [UsersService],
 })
 export class UsersModule {}
