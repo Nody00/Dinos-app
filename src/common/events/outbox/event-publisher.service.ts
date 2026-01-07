@@ -12,6 +12,7 @@ import {
 } from '@nestjs/microservices';
 import { EventOutboxRepository } from './event-outbox.repository';
 import { EventOutbox, EventType } from '../../../../generated/prisma/client';
+import { OnEvent } from '@nestjs/event-emitter';
 
 type EventOutboxWithType = EventOutbox & {
   eventType: EventType;
@@ -24,6 +25,7 @@ export class EventPublisherService implements OnModuleInit, OnModuleDestroy {
   private pollingInterval: NodeJS.Timeout;
   private readonly POLLING_INTERVAL_MS = 5000; // 5 seconds
   private readonly MAX_RETRIES = 5;
+  private isProcessing = false;
 
   constructor(
     private readonly repository: EventOutboxRepository,
@@ -80,8 +82,17 @@ export class EventPublisherService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Process unpublished events from the outbox
+   * Protects against concurrent processing
    */
   async processOutbox(): Promise<void> {
+    // Prevent concurrent processing
+    if (this.isProcessing) {
+      this.logger.log('Outbox is already being processed. Skipping.');
+      return;
+    }
+
+    this.isProcessing = true;
+
     try {
       const unpublishedEvents = await this.repository.getUnpublishedEvents(50);
 
@@ -98,6 +109,8 @@ export class EventPublisherService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       this.logger.error('Error processing outbox', error);
+    } finally {
+      this.isProcessing = false;
     }
   }
 
@@ -134,5 +147,11 @@ export class EventPublisherService implements OnModuleInit, OnModuleDestroy {
         error instanceof Error ? error.message : 'Unknown error',
       );
     }
+  }
+
+  @OnEvent('outbox.event.recorded')
+  handleOutboxEventRecorded() {
+    // Trigger polling for immediate processing
+    void this.processOutbox();
   }
 }
