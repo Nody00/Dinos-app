@@ -92,3 +92,93 @@ enum InvitationStatus {
   ACCEPTED
   REVOKED
 }
+
+// Event Types Registry
+model EventType {
+  id String @id @default(uuid())
+  name String @unique // "user.created", "invitation.revoked"
+  category String // "user", "invitation", "order"
+  description String?
+  schemaVersion Int @default(1)
+  isActive Boolean @default(true)
+
+  outboxEvents EventOutbox[]
+  historyEvents EventHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("event_types")
+}
+
+// Transactional Outbox - Temporary storage for unpublished events
+model EventOutbox{
+  id String @id @default(uuid())
+
+  // Event Type (FK to registry)
+  eventType EventType @relation(fields: [eventTypeId], references: [id])
+  eventTypeId String
+
+  // Aggregate/Entity Info
+  aggregateId String // ID of the user, invitation, order, etc.
+  aggregateType String // "User", "Invitation", "Order"
+
+  // Actor - who performed the action
+  actorType ActorType
+  actorId String? // User ID (nullable for system actions)
+
+  // Serialized event class instance(JSON)
+  eventData Json // Full event payload
+
+  // Outbox processing fields
+  published Boolean @default(false)
+  publishedAt DateTime?
+  retryCount Int @default(0)
+  error String? // Last error message if publishing failed
+
+  createdAt DateTime @default(now())
+
+  // Critical indexes for performance
+  @@index([published, createdAt])  // For polling unpublished events
+  @@index([aggregateId, aggregateType])  // For entity history queries
+  @@index([eventTypeId])
+  @@map("event_outbox")
+}
+
+// Event History - Permanent audit trail
+model EventHistory{
+  id String @id @default(uuid())
+
+  // Event Type (FK to registry)
+  eventType EventType @relation(fields: [eventTypeId], references: [id])
+  eventTypeId String
+
+  // Aggregate/Entity Info
+  aggregateId String // ID of the user, invitation, order, etc.
+  aggregateType String // "User", "Invitation", "Order"
+
+  // Actor - who performed the action
+  actorType ActorType
+  actorId String? // User ID (nullable for system actions)
+
+  // Serialized event class instance(JSON)
+  eventData Json // Full event payload
+
+  // When it originally occurred
+  occurredAt    DateTime  @default(now())
+
+  // Critical indexes for performance
+  @@index([aggregateId, aggregateType, occurredAt])
+  @@index([eventTypeId, occurredAt])
+  @@index([actorId, occurredAt])
+  @@map("event_history")
+}
+
+// Actor Type Enum
+enum ActorType {
+  SYSTEM  // Automated system operations (cron jobs, background tasks)
+  USER    // User-initiated operations (user clicked button)
+  API     // External API/integration operations
+}
