@@ -11,14 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-
-class CreateUserDto {
-  email: string;
-  firstName: string;
-  lastName: string;
-  password: string;
-  roleId: string;
-}
+import { CreateUserDto } from './dto/create-user.dto';
 
 class UpdateUserDto {
   email?: string;
