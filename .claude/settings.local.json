@@ -4,7 +4,10 @@
       "Bash(npx prisma:*)",
       "Bash(npm install:*)",
       "Bash(pnpm add:*)",
-      "Bash(pnpm remove:*)"
+      "Bash(pnpm remove:*)",
+      "WebFetch(domain:docs.nestjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.scalar.com)"
     ]
   }
 }
